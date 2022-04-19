@@ -1,17 +1,19 @@
+//Author: Github.com/Divino-Fire
+//year: 2021
+// this code is NOT YET fully in the public domain
+//contact me to get the setTimeout_G library for timing or write your own library
 
 //#include <LiquidCrystal_I2C.h>
-//#include <LiquidCrystal_SR.h>
-//#include <TimerOne.h> // eliminate this library by injecting your desired function's code into the while loop of countdown in start_up function 
-
-
 #include <LiquidCrystal.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
+
+//#include <LiquidCrystal_SR.h>
 #include <EEPROM.h>
 #include <Wire.h>
 #include <RTClib.h>
 #include <SetTimeout_G.h>
-
+//#include <TimerOne.h> // eliminate this library by injecting your desired function's code into the while loop of countdown in start_up function 
 
 // FUNCTION PROTOTYPES
 
@@ -86,7 +88,7 @@ volatile bool ok = LOW; // state of ok button
 
 //SetTimeout_G timer1;  // test code:: remove after debugging
 void setup(){
-  pinMode(ok_button, INPUT);
+  pinMode(ok_button, INPUT_PULLUP);
   pinMode(heater, OUTPUT);
   pinMode(buzzer, OUTPUT);
   pinMode(LED_heater_on, OUTPUT);
@@ -163,7 +165,7 @@ inline void start_up(){
     
   }
   
-void timer(){
+void timer( ){
   no_action_running = false;
   int time_m = makeChoice(knob, 60, ok_button, " --select time--", false); // select a desired time in minutes from 0 to 60 min
 
@@ -174,7 +176,7 @@ void timer(){
     onPinOnly(LED_heater_off);
     buzzer_stop(buzzer, 2000);
     }
-  else {offPin(heater); onPinOnly(LED_heater_off); buzzer_stop(buzzer, 1000);};
+  else {offPin(heater); onPinOnly(LED_heater_off); buzzer_stop(buzzer, 1000);}
   no_action_running = true;      
  }
 
@@ -253,7 +255,7 @@ void setTemp( ){
     while(1){
         delay(50);
         //if (digitalRead(ok_button)) return;
-        if (ok) { no_action_running = true; offPin(heater); onPinOnly(LED_heater_off); buzzer_stop(buzzer, 1000); return;} 
+        if (ok) { no_action_running = true; onPinOnly(LED_heater_off); return;} 
         if (timer2.delay(800)){temperature =  readTemp_(); timer2.again();}
         Serial.println(temperature);
         if (temperature != previous_temp){
@@ -261,9 +263,9 @@ void setTemp( ){
           lcd.print(temperature);
           previous_temp = temperature;
         }
-        if ((highTemp - lowTemp)>= 1){
+        if ((highTemp - lowTemp)>= 2){
 
-          if (temperature<=lowTemp){onPin(heater); onPinOnly(LED_heater_off);} //buzzer_start onPinOnly(LED_heater_on);
+          if (temperature<=lowTemp){onPin(heater); } //buzzer_start onPinOnly(LED_heater_on);
           else if (temperature>=highTemp) {offPin(heater); onPinOnly(LED_heater_off);}  //buzzer_stop
         }
 
@@ -309,7 +311,7 @@ void seeFutureTimer(){
     }
     ok = false;
     while(1){
-        check_savedTimer_ISR(); // check if saved timer is set to go
+        check_savedTimer_ISR(); // sheck is saved timer is set to go
         delay(100);
         if (ok) return;
     }

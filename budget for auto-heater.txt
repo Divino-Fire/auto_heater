@@ -1,0 +1,16 @@
+case: 1000
+socket: 500
+pins and connectors: 1000
+temp sensor: 2500
+RTC clock: 2500
+push button: 100
+variable resistor: 250
+arduino: 7000
+lcd: 2500
+leds: 100
+relay: 800
+dc supply: 1000
+extras: 1350
+
+total cost: 20500 frs
+

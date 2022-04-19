@@ -1,19 +1,19 @@
-
+//Author: github.com/Divino-Fire
+//year: 2021
 //#include <LiquidCrystal_I2C.h>
-#include <LiquidCrystal.h>
-#include <OneWire.h>
-#include <DallasTemperature.h>
-
 //#include <LiquidCrystal_SR.h>
-#include <EEPROM.h>
-#include <Wire.h>
-#include <RTClib.h>
-#include <SetTimeout_G.h>
 //#include <TimerOne.h> // eliminate this library by injecting your desired function's code into the while loop of countdown in start_up function 
-//char daysOfTheWeek[7][12] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
+
+#include <ezButton.h>  // for button debounce
+#include <LiquidCrystal.h> // for lcd control
+#include <OneWire.h> // for temperature
+#include <DallasTemperature.h> // for remperature
+#include <EEPROM.h> // for state saving features for date timer
+#include <Wire.h> // for temperature
+#include <RTClib.h> // for time module
+#include <SetTimeout_G.h> // for non-blocking delays
 
 // FUNCTION PROTOTYPES
-
 int makeChoice(uint8_t, unsigned int, bool, char*, bool, char* [] = {}, unsigned int = 250, float = 1.0);
 void saveTimer(int, int, int, int, int, int = 0, bool = true, bool = false);
 
@@ -40,9 +40,11 @@ const uint8_t buzzer = 6;
 //const uint8_t LED_heater_off = 10; 
 const uint8_t LED_heater_on = 5;
 const uint8_t LED_heater_off = 13; 
+
 //inputs
 const uint8_t knob = A0;
 const uint8_t ok_button = 2; // used only in the ISR
+ezButton okButton(2); 
 //const uint8_t temp_sensor = 4; // for the LM35, was not used -- see pin 11 temp_pin instead
 
 
@@ -85,7 +87,7 @@ volatile bool ok = LOW; // state of ok button
 
 //SetTimeout_G timer1;  // test code:: remove after debugging
 void setup(){
-  pinMode(ok_button, INPUT);
+  okButton.setDebounceTime(70); // set debounce time to 70 milliseconds
   pinMode(heater, OUTPUT);
   pinMode(buzzer, OUTPUT);
   pinMode(LED_heater_on, OUTPUT);
@@ -96,7 +98,7 @@ void setup(){
 
   //attachInterrupt(digitalPinToInterrupt(ok_button), button_state_change_ISR, CHANGE);
  //attachInterrupt(digitalPinToInterrupt(ok_button), button_state_high_ISR, RISING);
-  attachInterrupt(digitalPinToInterrupt(ok_button), button_state_low_ISR, FALLING);
+  //attachInterrupt(digitalPinToInterrupt(ok_button), button_state_low_ISR, FALLING);
 
  //internal interrupts
  //Timer1.initialize(1000000); //call check_savedTimer_ISR() after every 1 second.
@@ -120,11 +122,11 @@ void setup(){
 
   if (rtc.lostPower()) {
     Serial.println("RTC lost power, lets set the time!");
-	
-	// Comment out below lines once you set the date & time.
+  
+  // Comment out below lines once you set the date & time.
     // Following line sets the RTC to the date & time this sketch was compiled
     //rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
-	
+  
     // Following line sets the RTC with an explicit date & time
     // for example to set January 27 2017 at 12:56 you would call:
     // rtc.adjust(DateTime(2017, 1, 27, 12, 56, 0));
@@ -133,6 +135,7 @@ void setup(){
 }
      //// main >>>>>>>>
 void loop() {
+   okButton.loop(); // MUST call the loop() function first
    start_up();
 
 }
@@ -145,6 +148,7 @@ inline void start_up(){
   
   delay(welcome_delay);
   while(1){
+        okButton.loop();
         choice choosen_action = makeChoice(knob, 5, ok, "    Action?    ", true, actions, 2.0);
         switch (choosen_action) {
           case timer_c: timer();
@@ -162,18 +166,18 @@ inline void start_up(){
     
   }
   
-void timer( ){
+void timer(){
   no_action_running = false;
   int time_m = makeChoice(knob, 60, ok_button, " --select time--", false); // select a desired time in minutes from 0 to 60 min
 
   onPin(heater); onPinOnly(LED_heater_on); // turn on heater
   buzzer_start(buzzer, 1500);
-  if (countdown(timer1, time_m*60)){ // count down time_m in seconds using timer1 timer and when complete, off heater and sound buzzer
+  if (countdown(timer1, time_m)){ // count down time_m in seconds using timer1 timer and when complete, off heater and sound buzzer
     offPin(heater); // off heater
     onPinOnly(LED_heater_off);
     buzzer_stop(buzzer, 2000);
-    }
-  else {offPin(heater); onPinOnly(LED_heater_off); buzzer_stop(buzzer, 1000);}
+    
+  else {offPin(heater); onPinOnly(LED_heater_off); buzzer_stop(buzzer, 1000);};
   no_action_running = true;      
  }
 
@@ -198,10 +202,11 @@ void timer( ){
 
    ok = false;
    while(1){
+      okButton.loop();
       present = rtc.now();
       //delay(250);
       //if (digitalRead(ok_button)) return;
-      if (ok) {no_action_running = true; onPinOnly(LED_heater_off); return;}
+      if (okButton.isPressed()) {no_action_running = true; onPinOnly(LED_heater_off); return;}
       bool isDay = false;
       if (daysOfTheWeek[choosen_day] == "Everyday") isDay = true;
       else isDay = (present.dayOfTheWeek() == choosen_day);
@@ -231,6 +236,7 @@ void timer( ){
  //end of dateTimer()
 
 void setTemp( ){
+    okButton.loop();
     SetTimeout_G timer2;
     no_action_running = false;
     int lowTemp = makeChoice(knob, 150, ok_button, "- set low temp -", false);
@@ -250,9 +256,10 @@ void setTemp( ){
     ok = false;
     timer2.reset();
     while(1){
-        delay(50);
+        okButton.loop();
+        //delay(50);
         //if (digitalRead(ok_button)) return;
-        if (ok) { no_action_running = true; onPinOnly(LED_heater_off); return;} 
+        if (okButton.isPressed()) { no_action_running = true; offPin(heater); onPinOnly(LED_heater_off); buzzer_stop(buzzer, 1000); return;} 
         if (timer2.delay(800)){temperature =  readTemp_(); timer2.again();}
         Serial.println(temperature);
         if (temperature != previous_temp){
@@ -260,9 +267,9 @@ void setTemp( ){
           lcd.print(temperature);
           previous_temp = temperature;
         }
-        if ((highTemp - lowTemp)>= 2){
+        if ((highTemp - lowTemp)>= 1){
 
-          if (temperature<=lowTemp){onPin(heater); } //buzzer_start onPinOnly(LED_heater_on);
+          if (temperature<=lowTemp){onPin(heater); onPinOnly(LED_heater_off);} //buzzer_start onPinOnly(LED_heater_on);
           else if (temperature>=highTemp) {offPin(heater); onPinOnly(LED_heater_off);}  //buzzer_stop
         }
 
@@ -308,9 +315,10 @@ void seeFutureTimer(){
     }
     ok = false;
     while(1){
-        check_savedTimer_ISR(); // sheck is saved timer is set to go
+        okButton.loop();
+        check_savedTimer_ISR(); // check if saved timer is set to go
         delay(100);
-        if (ok) return;
+        if (okButton.isPressed()) return;
     }
 
 }
@@ -319,6 +327,7 @@ void seeFutureTimer(){
 void displayTime(){
   ok = false;
   while(1){
+      okButton.loop();
       check_savedTimer_ISR(); // sheck is saved timer is set to go
 
       DateTime now = rtc.now();
@@ -333,8 +342,8 @@ void displayTime(){
       lcd.print(centerText(month + " " + day)); // this line hangs the code
       lcd.setCursor(0,1);
       lcd.print(centerText(week_day + " " + hour + ":" + minute));
-      delay(300);
-      if (ok) return;
+      //delay(300);
+      if (okButton.isPressed()) return;
   }
 }
 //end of displayTime()
@@ -423,7 +432,7 @@ void lcd_clearRow_Portion(unsigned int row, unsigned int col_start, unsigned int
 }
 
 int makeChoice(uint8_t knob, unsigned int divisions, bool ok_, char* row1, bool useArray, char* row2_array[], unsigned int button_delay, float useShortFunction){
-    
+    okButton.loop();
     int choice = get_knob_division(knob, divisions);
     int previous_choice = get_knob_division(knob, divisions);
     lcd.clear();
@@ -436,6 +445,7 @@ int makeChoice(uint8_t knob, unsigned int divisions, bool ok_, char* row1, bool 
     delay(250);
     ok = false;
     while(1){
+      okButton.loop();
       delay(100);
       if (useShortFunction == 2.0) check_savedTimer_ISR;
       choice = get_knob_division(knob, divisions);
@@ -447,7 +457,7 @@ int makeChoice(uint8_t knob, unsigned int divisions, bool ok_, char* row1, bool 
       }
       //delay(200);
       //if (digitalRead(ok_button)) return choice;
-      if (ok) {ok = false; return choice;}
+      if (okButton.isPressed()) return choice;
       
     }
 
@@ -462,6 +472,7 @@ bool countdown(SetTimeout_G timer, unsigned long seconds){
     // loop to countdown from choosen time
     ok = false;
     while(1){
+      okButton.loop();
       delay(50);
       //if (digitalRead(ok_button)){ timer.reset(); return false;}
       if (timer.delay(seconds*1000)){ //convert seconds to milliseconds
@@ -476,7 +487,7 @@ bool countdown(SetTimeout_G timer, unsigned long seconds){
         String timeLeft = String(seconds - timer.elapsedSeconds()) + "    "; // the right space removes static numbers on lcd during countdown
         lcd.print(timeLeft); // print time left to return true
         //if (digitalRead(ok_button)){ timer.reset(); return false;}
-        if (ok){timer.reset(); ok = false; return false;}
+        if (okButton.isPressed()){timer.reset();  return false;}
         }
       }
 }
@@ -541,7 +552,6 @@ void check_savedTimer_ISR(){
               offPin(heater); // 
               onPinOnly(LED_heater_off);
               buzzer_stop(buzzer, 10000);
-              ok = false;
             }
             else {offPin(heater); onPinOnly(LED_heater_off); buzzer_stop(buzzer, 1500); }
       }
