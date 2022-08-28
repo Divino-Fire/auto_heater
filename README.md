@@ -16,4 +16,4 @@ Add WIFI or Bluetooth module to the device to control the device wirelessly from
 
 # NOTE!!!
 The code will not compile in arduino due to a missing library SetTimeout_G.h </br>
-If you must compile the code, contact the me (the author @Divino-Fire) or wait for the library to be open sourced.
+If you must compile the code, contact the me (the author @divinofire) or wait for the library to be open sourced.
